@@ -8,6 +8,13 @@ import {
   detectInput,
   validateImageFile,
 } from "@/lib/lookup/detect";
+import {
+  MAX_QUESTION_LENGTH,
+  REDIRECT_HINT,
+  SAFE_ALTERNATIVE,
+  SUGGESTED_QUESTIONS,
+  checkImageQuestion,
+} from "@/lib/lookup/question";
 
 type Props = { isSignedIn: boolean };
 
@@ -19,9 +26,12 @@ export function SearchBox({ isSignedIn }: Props) {
   const router = useRouter();
   const inputId = useId();
   const hintId = useId();
+  const questionId = useId();
+  const questionHintId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [text, setText] = useState("");
+  const [question, setQuestion] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -33,6 +43,7 @@ export function SearchBox({ isSignedIn }: Props) {
 
   const isImageMode = Boolean(file) || detected.kind === "image_url";
   const needsAccount = isImageMode && !isSignedIn;
+  const questionCheck = useMemo(() => checkImageQuestion(question), [question]);
 
   function pickFile(f: File | null | undefined) {
     if (!f) return;
@@ -59,17 +70,23 @@ export function SearchBox({ isSignedIn }: Props) {
       setError("Image lookups need a free account. Sign in to continue.");
       return;
     }
+    if (isImageMode && !questionCheck.allowed) {
+      setError("Change or remove your question to continue.");
+      return;
+    }
+    const imageQuestion = questionCheck.allowed && questionCheck.question ? questionCheck.question : undefined;
 
     let request: Promise<Response>;
     if (file) {
       const body = new FormData();
       body.append("image", file);
+      if (imageQuestion) body.append("question", imageQuestion);
       request = fetch("/api/lookup/image", { method: "POST", body });
     } else if (detected.kind === "image_url") {
       request = fetch("/api/lookup/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: detected.url }),
+        body: JSON.stringify({ url: detected.url, question: imageQuestion }),
       });
     } else if (detected.kind === "phone") {
       request = fetch("/api/lookup/phone", {
@@ -208,6 +225,63 @@ export function SearchBox({ isSignedIn }: Props) {
           {submitting ? "Checking…" : "Look up"}
         </button>
       </div>
+
+      {isImageMode && (
+        <div className="mt-3 rounded-2xl border border-navy-700 bg-navy-800/60 p-3 text-left">
+          <label htmlFor={questionId} className="block px-1 text-sm font-medium text-ink">
+            Ask about this image <span className="font-normal text-ink-muted">(optional)</span>
+          </label>
+          <textarea
+            id={questionId}
+            rows={2}
+            maxLength={MAX_QUESTION_LENGTH}
+            value={question}
+            onChange={(e) => { setQuestion(e.target.value); setError(null); }}
+            placeholder="e.g. Is this photo stolen from someone else?"
+            aria-describedby={questionHintId}
+            aria-invalid={!questionCheck.allowed}
+            className={`mt-2 w-full resize-none rounded-xl border bg-navy-900 px-3 py-2 text-base text-ink placeholder:text-ink-muted focus:outline-none ${
+              questionCheck.allowed ? "border-navy-600 focus:border-accent" : "border-risk-caution"
+            }`}
+          />
+          {questionCheck.allowed ? (
+            <ul id={questionHintId} className="mt-2 flex flex-wrap gap-2" aria-label="Suggested questions">
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <li key={q}>
+                  <button
+                    type="button"
+                    onClick={() => setQuestion(q)}
+                    aria-pressed={question === q}
+                    className={`rounded-full border px-3 py-1.5 text-xs ${
+                      question === q
+                        ? "border-accent bg-accent/15 text-ink"
+                        : "border-navy-600 text-ink-muted hover:border-accent hover:text-ink"
+                    }`}
+                  >
+                    {q}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div id={questionHintId} role="status" className="mt-2 space-y-2 px-1 text-sm">
+              <p className="text-risk-caution">{questionCheck.message}</p>
+              {questionCheck.topic !== "too_long" && (
+                <>
+                  <p className="text-ink-muted">{REDIRECT_HINT}</p>
+                  <button
+                    type="button"
+                    onClick={() => setQuestion(SAFE_ALTERNATIVE)}
+                    className="rounded-full border border-accent px-3 py-1.5 text-xs font-semibold text-ink hover:bg-accent/15"
+                  >
+                    Ask instead: {SAFE_ALTERNATIVE}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <p
         id={hintId}

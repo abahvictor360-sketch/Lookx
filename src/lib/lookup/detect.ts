@@ -1,4 +1,5 @@
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { checkImageQuestion } from "./question";
 
 /**
  * Input detection for the hero search box. Shared by client and server so the
@@ -79,6 +80,12 @@ export function detectInput(raw: string): DetectedInput {
   }
 
   if (PERSON_QUERY.test(text)) return { kind: "person_query", message: FACE_ID_MESSAGE };
+
+  // Personal questions typed into the main box ("is this person married?").
+  const question = checkImageQuestion(text);
+  if (!question.allowed && question.topic !== "too_long") {
+    return { kind: "person_query", message: question.message };
+  }
 
   return {
     kind: "unknown",

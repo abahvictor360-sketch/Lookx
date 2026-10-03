@@ -89,6 +89,7 @@ export type Database = {
           type: LookupType;
           query_hash: string;
           normalized_query: string | null;
+          question: string | null;
           risk_level: RiskLevel | null;
           summary: string | null;
           raw_results: Json;
