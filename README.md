@@ -171,6 +171,11 @@ $$);
   (`public.admin_stats`); `/admin/reports` moderation; `/admin/users` search, plan and
   credit changes, ban/unban, and **flagged users** (heavy lookups in 24h, the same
   number looked up 8+ times in 7 days, repeated rejected reports; `public.flagged_users`);
+  **Credits**: on `/admin/users` an admin can add (or remove, with a negative number)
+  credits for any user, with a required reason. Changes are atomic, can't take a balance
+  below zero, are logged in `credit_adjustments` (who, how many, why, new balance), listed
+  under "Recent credit changes", and shown to the user on their dashboard. Team credits
+  on `/admin/teams` use the same audited function (`public.admin_adjust_credits`).
   `/admin/requests` NDPA/GDPR data requests with a 30-day clock; `/admin/questions`.
 - **Rate limiting**: every lookup, report, dispute, OTP, checkout, data request and
   result-polling endpoint is limited per user and/or per hashed IP

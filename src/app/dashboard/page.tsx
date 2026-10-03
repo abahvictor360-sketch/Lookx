@@ -21,7 +21,7 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-NG", { day
 
 async function loadDashboard(userId: string) {
   const supabase = await createClient();
-  const [usage, saved, payments, reports] = await Promise.all([
+  const [usage, saved, payments, reports, adjustments] = await Promise.all([
     supabase.rpc("my_usage_this_month"),
     supabase
       .from("lookups")
@@ -43,6 +43,12 @@ async function loadDashboard(userId: string) {
       .eq("reporter_id", userId)
       .order("created_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("credit_adjustments")
+      .select("id, applied, reason, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const phoneIds = (reports.data ?? []).filter((r) => r.target_type === "phone").map((r) => r.target_id);
@@ -54,6 +60,7 @@ async function loadDashboard(userId: string) {
     usage: usage.data?.[0] ?? { free_phone: 0, free_image: 0, plan_used: 0, credit_used: 0 },
     saved: saved.data ?? [],
     payments: payments.data ?? [],
+    adjustments: adjustments.data ?? [],
     reports: (reports.data ?? []).map((r) => ({
       ...r,
       target: r.target_type === "phone" ? (phones?.find((p) => p.id === r.target_id)?.e164_number ?? "Phone number") : "Image",
@@ -87,7 +94,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUser();
   if (!user) redirect("/login?next=/dashboard");
   const params = await searchParams;
-  const { usage, saved, payments, reports } = await loadDashboard(user.id);
+  const { usage, saved, payments, reports, adjustments } = await loadDashboard(user.id);
   const plan = effectivePlan(profile);
   const isPro = plan === "pro";
   const membership = await getMembership(user.id);
@@ -177,9 +184,22 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </section>
 
         <section aria-labelledby="payments">
-          <h2 id="payments" className="text-lg font-bold">Payments</h2>
+          <h2 id="payments" className="text-lg font-bold">Payments and credits</h2>
+          {adjustments.length > 0 && (
+            <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-white shadow-sm">
+              {adjustments.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <span>
+                    <span className="font-medium">{a.applied >= 0 ? "Credits added by LookX" : "Credits removed by LookX"}</span>
+                    <span className="text-ink-muted"> · {a.reason} · {fmtDate(a.created_at)}</span>
+                  </span>
+                  <span className={`font-semibold ${a.applied >= 0 ? "text-brand" : "text-risk-high"}`}>{a.applied >= 0 ? `+${a.applied}` : a.applied}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {payments.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">No payments yet.</p>
+            adjustments.length === 0 && <p className="mt-2 text-sm text-ink-muted">No payments yet.</p>
           ) : (
             <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-white shadow-sm">
               {payments.map((t) => (

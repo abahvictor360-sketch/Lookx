@@ -278,6 +278,20 @@ export type Database = {
         },
         "team_id"
       >;
+      credit_adjustments: Table<
+        {
+          id: string;
+          user_id: string | null;
+          team_id: string | null;
+          amount: number;
+          applied: number;
+          balance: number;
+          reason: string;
+          admin_id: string | null;
+          created_at: string;
+        },
+        "amount" | "applied" | "balance" | "reason"
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -337,6 +351,10 @@ export type Database = {
       accept_team_invite: {
         Args: { p_token_hash: string; p_user_id: string; p_email: string };
         Returns: { ok: boolean; error: "invalid" | "wrong_email" | "already_in_team" | "no_seats" | null; team_id: string | null }[];
+      };
+      admin_adjust_credits: {
+        Args: { p_admin_id: string; p_user_id: string | null; p_team_id: string | null; p_amount: number; p_reason: string };
+        Returns: { ok: boolean; applied: number; balance: number }[];
       };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };

@@ -37,6 +37,7 @@ export default async function AdminTeamsPage() {
                 <label className="text-xs text-ink-muted">Seats<br /><input name="seats" type="number" defaultValue={t.seats} className={`${field} w-20`} /></label>
                 <label className="text-xs text-ink-muted">Monthly lookups<br /><input name="monthly_allowance" type="number" defaultValue={t.monthly_allowance} className={`${field} w-28`} /></label>
                 <label className="text-xs text-ink-muted">Add credits<br /><input name="add_credits" type="number" defaultValue={0} className={`${field} w-24`} /></label>
+                <label className="text-xs text-ink-muted">Credit reason<br /><input name="credit_reason" maxLength={200} placeholder="e.g. Invoice INV-001" className={`${field} w-44`} /></label>
                 <label className="text-xs text-ink-muted">Status<br />
                   <select name="active" defaultValue={String(t.active)} className={field}>
                     <option value="true">Active</option>

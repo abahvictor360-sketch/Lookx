@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LABEL, effectivePlan } from "@/lib/plans";
 import type { Profile } from "@/lib/supabase/database.types";
-import { adjustCredits, setBanned, setPlan } from "./actions";
+import { setBanned, setPlan } from "./actions";
+import { CreditForm } from "./credit-form";
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
 const btn = "rounded-full border border-line px-3 py-1.5 text-xs font-semibold hover:border-brand";
@@ -32,11 +33,7 @@ function UserRow({ p }: { p: Profile }) {
           </select>
           <button className={btn}>Set plan</button>
         </form>
-        <form action={adjustCredits} className="flex gap-1">
-          <input type="hidden" name="user_id" value={p.id} />
-          <input name="delta" type="number" defaultValue={10} aria-label="Credits to add" className="w-16 rounded-full border border-line px-2 py-1.5 text-xs" />
-          <button className={btn}>Add credits</button>
-        </form>
+        <CreditForm userId={p.id} email={p.email} />
         {p.role !== "admin" && (
           <form action={setBanned}>
             <input type="hidden" name="user_id" value={p.id} />
@@ -54,13 +51,17 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
   const q = typeof params.q === "string" ? params.q.trim().slice(0, 100) : "";
   const db = createAdminClient();
 
-  const [flagged, banned, found] = await Promise.all([
+  const [flagged, banned, found, adjustments] = await Promise.all([
     (await createClient()).rpc("flagged_users"),
     db.from("profiles").select("*").eq("banned", true).order("created_at", { ascending: false }).limit(50),
     q
       ? db.from("profiles").select("*").ilike("email", `%${q.replace(/[%_]/g, "\\$&")}%`).limit(25)
       : db.from("profiles").select("*").order("created_at", { ascending: false }).limit(10),
+    db.from("credit_adjustments").select("*").not("user_id", "is", null).order("created_at", { ascending: false }).limit(15),
   ]);
+  const adjIds = [...new Set((adjustments.data ?? []).flatMap((a) => [a.user_id, a.admin_id]).filter((x): x is string => Boolean(x)))];
+  const { data: adjPeople } = adjIds.length ? await db.from("profiles").select("id, email").in("id", adjIds) : { data: [] };
+  const emailOf = (id: string | null) => adjPeople?.find((x) => x.id === id)?.email ?? "—";
 
   return (
     <div className="space-y-8">
@@ -100,6 +101,27 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                     <button className={`${btn} text-risk-high hover:border-risk-high`}>Ban</button>
                   </form>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-lg font-bold">Recent credit changes</h2>
+        <p className="text-sm text-ink-muted">Every manual credit change is logged with who made it and why.</p>
+        {(adjustments.data ?? []).length === 0 ? (
+          <p className="mt-3 rounded-2xl border border-dashed border-line bg-white/60 p-5 text-sm text-ink-muted">No manual credit changes yet.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-white text-sm shadow-sm">
+            {adjustments.data!.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                <span>
+                  <strong className={a.applied >= 0 ? "text-brand" : "text-risk-high"}>{a.applied >= 0 ? `+${a.applied}` : a.applied}</strong>{" "}
+                  <span className="font-medium">{emailOf(a.user_id)}</span>
+                  <span className="text-ink-muted"> · “{a.reason}” · balance {a.balance}</span>
+                </span>
+                <span className="text-xs text-ink-muted">by {emailOf(a.admin_id)} · {fmt(a.created_at)}</span>
               </li>
             ))}
           </ul>
