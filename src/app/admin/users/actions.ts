@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureTeamForOwner } from "@/lib/teams/admin";
 
 const id = z.string().uuid();
 
@@ -33,7 +34,9 @@ export async function setPlan(form: FormData) {
       plan_expires_at: plan === "pro" ? new Date(Date.now() + 31 * 86_400_000).toISOString() : null,
     })
     .eq("id", userId);
+  if (plan === "business") await ensureTeamForOwner(userId);
   refresh();
+  revalidatePath("/admin/teams");
 }
 
 /** Add (or remove, with a negative number) paid credits, e.g. for support refunds. */

@@ -185,6 +185,25 @@ $$);
 - **Security headers**: HSTS, nosniff, frame denial, referrer and permissions policies
   (`next.config.ts`). A nonce-based CSP is still to do once production domains are fixed.
 
+## Business tier (teams, API, bulk)
+
+- **Teams**: an admin sets a user's plan to **Business** (`/admin/users`), which creates a
+  team they own. Admins set seats, monthly lookup allowance, team credits and active
+  status at `/admin/teams` (e.g. after an invoice is paid). Defaults: 5 seats, 1,000
+  lookups a month.
+- **Members** join through one-time invite links (7 days, must match the invited email,
+  seat-limited; `public.accept_team_invite`). While someone is in a team, their lookups
+  are billed to it: monthly allowance first, then team credits (`public.start_lookup`).
+- **API keys** (`/team`, owners/admins): `lx_live_...`, shown once, stored as a keyed
+  hash, revocable, 60 requests/minute each. Docs for customers at `/team/docs`.
+- **Public API** (`/api/v1`): `POST /lookups/phone` (waits for the full result by
+  default), `GET /lookups/{id}`, `POST /bulk` (up to 50 numbers), `GET /bulk/{id}`.
+  Teams can only read their own lookups.
+- **Bulk lookups** (`/team/bulk`): paste or upload a CSV, watch progress, download
+  results as CSV (formula-injection safe). Processing runs 5 at a time in the
+  background; bulk routes allow up to 300s (needs Vercel Pro or fluid compute).
+- Image lookups are not exposed in the API yet.
+
 ## Image questions (admin)
 
 Admins manage the questions users can ask alongside an image at `/admin/questions`
@@ -219,4 +238,4 @@ supabase/
 - [x] Phase 4: community reports, moderation, disputes with OTP
 - [ ] Phase 5: credits, Paystack, history
 - [x] Phase 6: admin dashboard, rate limiting, legal pages, SEO, analytics
-- [ ] Phase 7: business tier
+- [x] Phase 7: business tier

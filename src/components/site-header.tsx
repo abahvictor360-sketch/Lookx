@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { isSupabaseConfigured } from "@/lib/public-env";
 import { getCurrentUser } from "@/lib/supabase/server";
+import { getMembership } from "@/lib/teams/server";
 
 const linkClass = "rounded-md px-2 py-2 text-ink-muted hover:text-brand sm:px-3";
 
@@ -9,6 +10,7 @@ export async function SiteHeader() {
   const { user, profile } = isSupabaseConfigured
     ? await getCurrentUser()
     : { user: null, profile: null };
+  const membership = user ? await getMembership(user.id) : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur">
@@ -26,6 +28,11 @@ export async function SiteHeader() {
               <li className="hidden sm:block">
                 <Link href="/history" className={linkClass}>History</Link>
               </li>
+              {membership && (
+                <li>
+                  <Link href="/team" className={linkClass}>Team</Link>
+                </li>
+              )}
               {profile?.role === "admin" && (
                 <li className="hidden sm:block">
                   <Link href="/admin" className={linkClass}>Admin</Link>

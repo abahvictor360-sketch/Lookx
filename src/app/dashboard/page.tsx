@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { REPORT_CATEGORIES } from "@/lib/reports/constants";
 import { FREE_MONTHLY, PLAN_LABEL, PRO_MONTHLY_LOOKUPS, PRODUCTS, effectivePlan, formatNaira } from "@/lib/plans";
 import { RiskBadge } from "@/components/result/risk-badge";
+import { getMembership } from "@/lib/teams/server";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false } };
 
@@ -89,6 +90,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { usage, saved, payments, reports } = await loadDashboard(user.id);
   const plan = effectivePlan(profile);
   const isPro = plan === "pro";
+  const membership = await getMembership(user.id);
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
@@ -105,6 +107,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <Link href="/" className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover">New lookup</Link>
         </div>
       </div>
+
+      {membership && (
+        <Link href="/team" className="mt-4 block rounded-2xl border border-brand bg-brand-soft px-5 py-4 text-sm hover:bg-mint-100">
+          <strong className="text-ink">You&apos;re in {membership.team.name}.</strong>{" "}
+          <span className="text-ink-muted">Your lookups are billed to the team. Open the team page for bulk lookups and API keys →</span>
+        </Link>
+      )}
 
       {params.paid && (
         <p role="status" className="mt-4 rounded-xl bg-mint-100 px-4 py-3 text-sm font-medium text-brand">Payment received. Thank you!</p>

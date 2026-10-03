@@ -37,7 +37,8 @@ export type ReportStatus = "pending" | "approved" | "rejected" | "disputed";
 export type DisputeStatus = "open" | "upheld" | "rejected";
 export type TransactionStatus = "pending" | "success" | "failed";
 export type LookupStatus = "processing" | "complete" | "failed";
-export type LookupBilling = "guest" | "free" | "plan" | "credit";
+export type LookupBilling = "guest" | "free" | "plan" | "credit" | "team";
+export type TeamRole = "owner" | "admin" | "member";
 
 type Table<Row, Required extends keyof Row = never> = {
   Row: Row;
@@ -103,6 +104,9 @@ export type Database = {
           ip_hash: string | null;
           saved: boolean;
           image_id: string | null;
+          team_id: string | null;
+          api_key_id: string | null;
+          bulk_job_id: string | null;
           created_at: string;
         },
         "type" | "query_hash"
@@ -217,6 +221,63 @@ export type Database = {
         },
         "email" | "request_type" | "details"
       >;
+      teams: Table<
+        {
+          id: string;
+          name: string;
+          owner_id: string;
+          active: boolean;
+          seats: number;
+          monthly_allowance: number;
+          credits: number;
+          created_at: string;
+        },
+        "name" | "owner_id"
+      >;
+      team_members: Table<
+        { team_id: string; user_id: string; role: TeamRole; created_at: string },
+        "team_id" | "user_id"
+      >;
+      team_invites: Table<
+        {
+          id: string;
+          team_id: string;
+          email: string;
+          role: "admin" | "member";
+          token_hash: string;
+          created_by: string | null;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+        },
+        "team_id" | "email" | "token_hash" | "expires_at"
+      >;
+      api_keys: Table<
+        {
+          id: string;
+          team_id: string;
+          name: string;
+          prefix: string;
+          key_hash: string;
+          created_by: string | null;
+          last_used_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        "team_id" | "name" | "prefix" | "key_hash"
+      >;
+      bulk_jobs: Table<
+        {
+          id: string;
+          team_id: string;
+          created_by: string | null;
+          api_key_id: string | null;
+          label: string | null;
+          total: number;
+          created_at: string;
+        },
+        "team_id"
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -238,11 +299,12 @@ export type Database = {
           p_normalized_query: string;
           p_ip_hash: string | null;
           p_raw_results: Json;
+          p_team_id?: string | null;
         };
         Returns: {
           lookup_id: string | null;
           billing: LookupBilling | null;
-          error: "no_profile" | "banned" | "no_credits" | null;
+          error: "no_profile" | "banned" | "no_credits" | "team_inactive" | null;
         }[];
       };
       match_or_create_image: {
@@ -271,6 +333,10 @@ export type Database = {
       flagged_users: {
         Args: Record<string, never>;
         Returns: { user_id: string; email: string | null; reason: string; metric: number; banned: boolean; created_at: string }[];
+      };
+      accept_team_invite: {
+        Args: { p_token_hash: string; p_user_id: string; p_email: string };
+        Returns: { ok: boolean; error: "invalid" | "wrong_email" | "already_in_team" | "no_seats" | null; team_id: string | null }[];
       };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };
@@ -303,3 +369,5 @@ export type Report = Database["public"]["Tables"]["reports"]["Row"];
 export type Dispute = Database["public"]["Tables"]["disputes"]["Row"];
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type DataRequest = Database["public"]["Tables"]["data_requests"]["Row"];
+export type Team = Database["public"]["Tables"]["teams"]["Row"];
+export type ApiKey = Database["public"]["Tables"]["api_keys"]["Row"];

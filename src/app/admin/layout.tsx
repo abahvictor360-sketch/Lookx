@@ -15,6 +15,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             <li><Link href="/admin" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Overview</Link></li>
             <li><Link href="/admin/reports" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Reports</Link></li>
             <li><Link href="/admin/users" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Users</Link></li>
+            <li><Link href="/admin/teams" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Teams</Link></li>
             <li><Link href="/admin/requests" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Requests</Link></li>
             <li><Link href="/admin/questions" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Image questions</Link></li>
           </ul>
