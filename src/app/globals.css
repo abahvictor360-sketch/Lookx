@@ -1,46 +1,63 @@
 @import "tailwindcss";
 
 /*
- * LookX design tokens.
- * Dark navy base, one electric accent for actions. Red / amber / green are
- * reserved for risk badges only. All text pairs meet WCAG AA on navy.
+ * LookX design tokens: light mint surfaces, deep green brand, dark green footer.
+ * Red / amber / green risk colours are only used for risk badges, always with
+ * an icon and a text label so colour is never the only signal.
+ * Text pairs below meet WCAG AA on white / mint.
  */
 @theme {
-  --color-navy-950: #070e1c;
-  --color-navy-900: #0b1426;
-  --color-navy-800: #111d35;
-  --color-navy-700: #1a2a4a;
-  --color-navy-600: #2a3d63;
+  --color-page: #f4faf7;
+  --color-surface: #ffffff;
+  --color-mint-50: #effaf5;
+  --color-mint-100: #e1f5ec;
+  --color-mint-200: #c6ebdb;
+  --color-line: #dcebe4;
 
-  --color-ink: #e8eef8;       /* primary text */
-  --color-ink-muted: #a3b1c9; /* secondary text, 7.9:1 on navy-900 */
+  --color-ink: #0f2e27;        /* headings & body, 14:1 on white */
+  --color-ink-muted: #4c6860;  /* secondary text, 5.9:1 on white */
 
-  --color-accent: #3d8bff;       /* electric blue: actions, focus */
-  --color-accent-hover: #6aa6ff;
-  --color-accent-ink: #061021;   /* text on accent, 5.9:1 */
+  --color-brand: #077a54;        /* buttons, links: 5.3:1 with white text */
+  --color-brand-hover: #05664a;
+  --color-brand-bright: #12a877; /* large display text & decoration only */
+  --color-brand-soft: #e3f5ee;
 
-  --color-risk-low: #22c55e;
-  --color-risk-caution: #f5a524;
-  --color-risk-high: #ff6363;  /* 5.4:1 on navy-800 */
+  --color-forest-900: #0a241f;   /* footer */
+  --color-forest-800: #10342d;
+
+  --color-risk-low: #15803d;
+  --color-risk-low-bg: #dcfce7;
+  --color-risk-caution: #a3530b;
+  --color-risk-caution-bg: #fef3c7;
+  --color-risk-high: #b91c1c;
+  --color-risk-high-bg: #fee2e2;
 
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--color-navy-900);
+  background: var(--color-page);
   color: var(--color-ink);
 }
 
-/* Visible keyboard focus everywhere (in the base layer so utilities can override). */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
+}
+
+/* Soft mint glow behind hero sections, as in the brand references. */
+.hero-glow {
+  background:
+    radial-gradient(60% 60% at 50% 30%, rgb(18 168 119 / 0.16), transparent 70%),
+    radial-gradient(40% 50% at 85% 20%, rgb(56 209 170 / 0.14), transparent 70%),
+    radial-gradient(40% 50% at 10% 60%, rgb(120 220 190 / 0.18), transparent 70%),
+    linear-gradient(180deg, #ecf9f3 0%, var(--color-page) 100%);
 }
 
 /* Skeleton shimmer used instead of spinners. */
@@ -49,11 +66,10 @@ body {
     transform: translateX(100%);
   }
 }
-
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-navy-700);
+  background: var(--color-mint-100);
   border-radius: 0.5rem;
 }
 .skeleton::after {
@@ -61,12 +77,22 @@ body {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
   animation: lookx-shimmer 1.4s infinite;
 }
 
+@keyframes lookx-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.float-slow {
+  animation: lookx-float 6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .skeleton::after {
+  .skeleton::after,
+  .float-slow {
     animation: none;
   }
 }

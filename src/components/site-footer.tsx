@@ -1,27 +1,59 @@
 import Link from "next/link";
+import { Logo } from "./logo";
+
+const COLUMNS = [
+  {
+    title: "Product",
+    links: [
+      { href: "/", label: "Phone lookup" },
+      { href: "/", label: "Image lookup" },
+      { href: "/pricing", label: "Pricing" },
+    ],
+  },
+  {
+    title: "Community",
+    links: [
+      { href: "/report", label: "Report a number" },
+      { href: "/dispute", label: "Dispute a report" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/legal/privacy", label: "Privacy policy" },
+      { href: "/legal/terms", label: "Terms of use" },
+    ],
+  },
+];
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-navy-700/70 bg-navy-950">
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-ink-muted sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-md space-y-2">
-          <p className="font-semibold text-ink">LookX</p>
-          <p>
-            Results are a risk indicator, not a verdict. LookX shows what public sources and
-            community reports say; it never identifies people from their face.
-          </p>
-          <p>
-            Using LookX to stalk, harass or locate anyone is prohibited and leads to a ban.
+    <footer className="bg-forest-900 text-white/75">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="space-y-3 text-sm">
+          <Logo tone="light" />
+          <p>Look it up before you pay, date, or trust.</p>
+          <p className="text-white/60">
+            Results are a risk indicator, not a verdict. LookX never identifies people from their
+            face. Using LookX to stalk, harass or locate anyone leads to a ban.
           </p>
         </div>
-        <ul className="flex flex-wrap gap-x-4 gap-y-2">
-          <li><Link className="hover:text-ink" href="/pricing">Pricing</Link></li>
-          <li><Link className="hover:text-ink" href="/dispute">Dispute a report</Link></li>
-          <li><Link className="hover:text-ink" href="/legal/privacy">Privacy</Link></li>
-          <li><Link className="hover:text-ink" href="/legal/terms">Terms</Link></li>
-        </ul>
+        {COLUMNS.map((col) => (
+          <div key={col.title}>
+            <h2 className="text-sm font-semibold text-brand-bright">{col.title}</h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              {col.links.map((l) => (
+                <li key={l.label}>
+                  <Link href={l.href} className="hover:text-white">{l.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
-      <p className="pb-6 text-center text-xs text-ink-muted">© {new Date().getFullYear()} LookX</p>
+      <p className="border-t border-white/10 py-5 text-center text-xs text-white/50">
+        © {new Date().getFullYear()} LookX. Made for Nigeria, built for Africa.
+      </p>
     </footer>
   );
 }

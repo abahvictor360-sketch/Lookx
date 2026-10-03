@@ -3,37 +3,42 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ACCEPTED_IMAGE_TYPES,
-  detectInput,
-  validateImageFile,
-} from "@/lib/lookup/detect";
+import { ACCEPTED_IMAGE_TYPES, detectInput, validateImageFile } from "@/lib/lookup/detect";
 import {
   MAX_QUESTION_LENGTH,
   REDIRECT_HINT,
-  SAFE_ALTERNATIVE,
-  SUGGESTED_QUESTIONS,
   checkImageQuestion,
 } from "@/lib/lookup/question";
 
-type Props = { isSignedIn: boolean };
+type QuestionOption = { id: string; label: string };
+
+type Props = {
+  isSignedIn: boolean;
+  /** Admin-managed questions offered alongside an image. */
+  questions: QuestionOption[];
+  /** Whether admins allow users to type their own question. */
+  allowCustomQuestions: boolean;
+};
+
+type ApiError = { error?: string; code?: string };
 
 /**
  * Hero search box. Auto-detects a phone number vs. an image link as the user
  * types, and accepts image uploads via button, drag-and-drop or paste.
+ * For images, the user can pick a question from the admin-managed list.
  */
-export function SearchBox({ isSignedIn }: Props) {
+export function SearchBox({ isSignedIn, questions, allowCustomQuestions }: Props) {
   const router = useRouter();
   const inputId = useId();
   const hintId = useId();
-  const questionId = useId();
-  const questionHintId = useId();
+  const customId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [text, setText] = useState("");
-  const [question, setQuestion] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [questionId, setQuestionId] = useState<string | null>(null);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [error, setError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -43,13 +48,14 @@ export function SearchBox({ isSignedIn }: Props) {
 
   const isImageMode = Boolean(file) || detected.kind === "image_url";
   const needsAccount = isImageMode && !isSignedIn;
-  const questionCheck = useMemo(() => checkImageQuestion(question), [question]);
+  const customCheck = useMemo(() => checkImageQuestion(customQuestion), [customQuestion]);
+  const usingCustom = !questionId && customQuestion.trim().length > 0;
 
   function pickFile(f: File | null | undefined) {
     if (!f) return;
     const problem = validateImageFile(f);
     if (problem) {
-      setError(problem);
+      setError({ error: problem });
       return;
     }
     setError(null);
@@ -67,26 +73,27 @@ export function SearchBox({ isSignedIn }: Props) {
     setError(null);
 
     if (needsAccount) {
-      setError("Image lookups need a free account. Sign in to continue.");
+      setError({ error: "Image lookups need a free account.", code: "needs_account" });
       return;
     }
-    if (isImageMode && !questionCheck.allowed) {
-      setError("Change or remove your question to continue.");
+    if (isImageMode && usingCustom && !customCheck.allowed) {
+      setError({ error: "Change or remove your question to continue." });
       return;
     }
-    const imageQuestion = questionCheck.allowed && questionCheck.question ? questionCheck.question : undefined;
 
+    const question = usingCustom && customCheck.allowed ? customCheck.question : undefined;
     let request: Promise<Response>;
     if (file) {
       const body = new FormData();
       body.append("image", file);
-      if (imageQuestion) body.append("question", imageQuestion);
+      if (questionId) body.append("question_id", questionId);
+      if (question) body.append("question", question);
       request = fetch("/api/lookup/image", { method: "POST", body });
     } else if (detected.kind === "image_url") {
       request = fetch("/api/lookup/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: detected.url, question: imageQuestion }),
+        body: JSON.stringify({ url: detected.url, question_id: questionId ?? undefined, question }),
       });
     } else if (detected.kind === "phone") {
       request = fetch("/api/lookup/phone", {
@@ -95,26 +102,24 @@ export function SearchBox({ isSignedIn }: Props) {
         body: JSON.stringify({ phone: text }),
       });
     } else {
-      setError(
-        detected.kind === "empty"
-          ? "Enter a phone number or upload an image."
-          : detected.message,
-      );
+      setError({
+        error: detected.kind === "empty" ? "Enter a phone number or upload an image." : detected.message,
+      });
       return;
     }
 
     setSubmitting(true);
     try {
       const res = await request;
-      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as ApiError & { id?: string };
       if (!res.ok || !data.id) {
-        setError(data.error ?? "Something went wrong. Please try again.");
+        setError({ error: data.error ?? "Something went wrong. Please try again.", code: data.code });
+        setSubmitting(false);
         return;
       }
       router.push(`/result/${data.id}`);
     } catch {
-      setError("Network error. Check your connection and try again.");
-    } finally {
+      setError({ error: "Network error. Check your connection and try again." });
       setSubmitting(false);
     }
   }
@@ -130,7 +135,7 @@ export function SearchBox({ isSignedIn }: Props) {
       case "person_query":
         return detected.message;
       default:
-        return "Try 08012345678, +234 801 234 5678, or upload a photo";
+        return null;
     }
   })();
   const hintIsWarning = !file && (detected.kind === "invalid_phone" || detected.kind === "person_query");
@@ -152,23 +157,19 @@ export function SearchBox({ isSignedIn }: Props) {
         Phone number or image link
       </label>
       <div
-        className={`flex items-center gap-2 rounded-2xl border bg-navy-800 p-2 shadow-lg shadow-black/30 transition-colors ${
-          dragging ? "border-accent" : "border-navy-600 focus-within:border-accent"
+        className={`flex items-center gap-1 rounded-full border-2 bg-white p-1.5 pl-4 shadow-[0_10px_30px_-12px_rgb(7_122_84/0.35)] transition-colors ${
+          dragging ? "border-brand-bright" : "border-mint-200 focus-within:border-brand"
         }`}
       >
         {file && previewUrl ? (
-          <div className="flex min-w-0 flex-1 items-center gap-3 pl-1">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-            <img
-              src={previewUrl}
-              alt="Preview of the image you selected"
-              className="h-11 w-11 shrink-0 rounded-lg object-cover"
-            />
+            <img src={previewUrl} alt="Preview of the image you selected" className="h-10 w-10 shrink-0 rounded-full object-cover" />
             <span className="truncate text-sm text-ink">{file.name}</span>
             <button
               type="button"
               onClick={clearFile}
-              className="ml-auto shrink-0 rounded-md px-2 py-1 text-sm text-ink-muted hover:text-ink"
+              className="ml-auto shrink-0 rounded-full px-2 py-1 text-sm text-ink-muted hover:text-brand"
             >
               Remove
             </button>
@@ -177,11 +178,10 @@ export function SearchBox({ isSignedIn }: Props) {
           <input
             id={inputId}
             type="text"
-            inputMode="text"
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder="Phone number or image link"
+            placeholder="Enter a phone number or paste an image link"
             value={text}
             onChange={(e) => { setText(e.target.value); setError(null); }}
             onPaste={(e) => {
@@ -189,7 +189,7 @@ export function SearchBox({ isSignedIn }: Props) {
               if (pasted) { e.preventDefault(); pickFile(pasted); }
             }}
             aria-describedby={hintId}
-            className="min-w-0 flex-1 bg-transparent px-2 py-3 text-base text-ink placeholder:text-ink-muted focus:outline-none sm:text-lg"
+            className="min-w-0 flex-1 bg-transparent py-2.5 text-base text-ink placeholder:text-ink-muted/80 focus:outline-none"
           />
         )}
 
@@ -206,7 +206,7 @@ export function SearchBox({ isSignedIn }: Props) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-navy-700 hover:text-ink"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-mint-50 hover:text-brand"
             aria-label="Upload an image"
             title="Upload an image"
           >
@@ -220,92 +220,113 @@ export function SearchBox({ isSignedIn }: Props) {
         <button
           type="submit"
           disabled={submitting}
-          className="h-11 shrink-0 rounded-xl bg-accent px-4 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-60 sm:px-6"
+          className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-brand px-4 font-semibold text-white hover:bg-brand-hover disabled:opacity-70 sm:px-6"
         >
-          {submitting ? "Checking…" : "Look up"}
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m16 16 4.5 4.5" strokeLinecap="round" />
+          </svg>
+          <span className="sr-only sm:not-sr-only">{submitting ? "Checking…" : "Look up"}</span>
         </button>
       </div>
-
-      {isImageMode && (
-        <div className="mt-3 rounded-2xl border border-navy-700 bg-navy-800/60 p-3 text-left">
-          <label htmlFor={questionId} className="block px-1 text-sm font-medium text-ink">
-            Ask about this image <span className="font-normal text-ink-muted">(optional)</span>
-          </label>
-          <textarea
-            id={questionId}
-            rows={2}
-            maxLength={MAX_QUESTION_LENGTH}
-            value={question}
-            onChange={(e) => { setQuestion(e.target.value); setError(null); }}
-            placeholder="e.g. Is this photo stolen from someone else?"
-            aria-describedby={questionHintId}
-            aria-invalid={!questionCheck.allowed}
-            className={`mt-2 w-full resize-none rounded-xl border bg-navy-900 px-3 py-2 text-base text-ink placeholder:text-ink-muted focus:outline-none ${
-              questionCheck.allowed ? "border-navy-600 focus:border-accent" : "border-risk-caution"
-            }`}
-          />
-          {questionCheck.allowed ? (
-            <ul id={questionHintId} className="mt-2 flex flex-wrap gap-2" aria-label="Suggested questions">
-              {SUGGESTED_QUESTIONS.map((q) => (
-                <li key={q}>
-                  <button
-                    type="button"
-                    onClick={() => setQuestion(q)}
-                    aria-pressed={question === q}
-                    className={`rounded-full border px-3 py-1.5 text-xs ${
-                      question === q
-                        ? "border-accent bg-accent/15 text-ink"
-                        : "border-navy-600 text-ink-muted hover:border-accent hover:text-ink"
-                    }`}
-                  >
-                    {q}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div id={questionHintId} role="status" className="mt-2 space-y-2 px-1 text-sm">
-              <p className="text-risk-caution">{questionCheck.message}</p>
-              {questionCheck.topic !== "too_long" && (
-                <>
-                  <p className="text-ink-muted">{REDIRECT_HINT}</p>
-                  <button
-                    type="button"
-                    onClick={() => setQuestion(SAFE_ALTERNATIVE)}
-                    className="rounded-full border border-accent px-3 py-1.5 text-xs font-semibold text-ink hover:bg-accent/15"
-                  >
-                    Ask instead: {SAFE_ALTERNATIVE}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       <p
         id={hintId}
         aria-live="polite"
-        className={`mt-3 min-h-5 px-1 text-sm ${hintIsWarning ? "text-risk-caution" : "text-ink-muted"}`}
+        className={`mt-3 min-h-5 px-2 text-sm ${hintIsWarning ? "text-risk-caution" : "text-ink-muted"}`}
       >
         {hint}
       </p>
 
+      {isImageMode && (questions.length > 0 || allowCustomQuestions) && (
+        <fieldset className="mt-2 rounded-2xl border border-line bg-white/90 p-4 text-left shadow-sm">
+          <legend className="sr-only">Ask about this image</legend>
+          <p className="text-sm font-semibold text-ink" aria-hidden="true">
+            Ask about this image <span className="font-normal text-ink-muted">(optional)</span>
+          </p>
+          {questions.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {questions.map((q) => {
+                const selected = questionId === q.id;
+                return (
+                  <li key={q.id}>
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setQuestionId(selected ? null : q.id);
+                        setCustomQuestion("");
+                        setError(null);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-sm ${
+                        selected
+                          ? "border-brand bg-brand text-white"
+                          : "border-line bg-mint-50 text-ink hover:border-brand"
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {allowCustomQuestions && (
+            <div className="mt-3">
+              <label htmlFor={customId} className="text-sm text-ink-muted">
+                {questions.length > 0 ? "Or ask your own question about the image" : "Your question"}
+              </label>
+              <textarea
+                id={customId}
+                rows={2}
+                maxLength={MAX_QUESTION_LENGTH}
+                value={customQuestion}
+                onChange={(e) => {
+                  setCustomQuestion(e.target.value);
+                  if (e.target.value) setQuestionId(null);
+                  setError(null);
+                }}
+                placeholder="e.g. Is this photo stolen from someone else?"
+                aria-invalid={!customCheck.allowed}
+                className={`mt-1 w-full resize-none rounded-xl border bg-white px-3 py-2 text-base text-ink placeholder:text-ink-muted/80 focus:outline-none ${
+                  customCheck.allowed ? "border-line focus:border-brand" : "border-risk-caution"
+                }`}
+              />
+              {!customCheck.allowed && (
+                <div role="status" className="mt-2 space-y-1 rounded-xl bg-risk-caution-bg px-3 py-2 text-sm">
+                  <p className="font-medium text-risk-caution">{customCheck.message}</p>
+                  {customCheck.topic !== "too_long" && <p className="text-ink">{REDIRECT_HINT}</p>}
+                  {customCheck.topic !== "too_long" && questions[0] && (
+                    <button
+                      type="button"
+                      onClick={() => { setQuestionId(questions[0].id); setCustomQuestion(""); }}
+                      className="mt-1 rounded-full border border-brand bg-white px-3 py-1 text-xs font-semibold text-brand hover:bg-brand-soft"
+                    >
+                      Ask instead: {questions[0].label}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </fieldset>
+      )}
+
       {needsAccount && !error && (
-        <p className="mt-1 px-1 text-sm text-ink-muted">
+        <p className="mt-2 px-2 text-sm text-ink-muted">
           Image lookups need a free account.{" "}
-          <Link href="/login?next=/" className="font-semibold text-accent hover:text-accent-hover">
-            Sign in
-          </Link>
+          <Link href="/login?next=/" className="font-semibold text-brand underline">Sign in</Link>
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-1 px-1 text-sm text-risk-high">
-          {error}{" "}
-          {needsAccount && (
-            <Link href="/login?next=/" className="font-semibold text-accent underline">
-              Sign in
-            </Link>
+        <p role="alert" className="mt-2 px-2 text-sm font-medium text-risk-high">
+          {error.error}{" "}
+          {(error.code === "guest_limit" || error.code === "needs_account") && (
+            <Link href="/login?next=/" className="font-semibold text-brand underline">Sign in free</Link>
+          )}
+          {error.code === "no_credits" && (
+            <Link href="/pricing" className="font-semibold text-brand underline">Buy credits</Link>
           )}
         </p>
       )}

@@ -36,6 +36,8 @@ export type ReportPlatform =
 export type ReportStatus = "pending" | "approved" | "rejected" | "disputed";
 export type DisputeStatus = "open" | "upheld" | "rejected";
 export type TransactionStatus = "pending" | "success" | "failed";
+export type LookupStatus = "processing" | "complete" | "failed";
+export type LookupBilling = "guest" | "free" | "plan" | "credit";
 
 type Table<Row, Required extends keyof Row = never> = {
   Row: Row;
@@ -93,6 +95,10 @@ export type Database = {
           risk_level: RiskLevel | null;
           summary: string | null;
           raw_results: Json;
+          status: LookupStatus;
+          billing: LookupBilling;
+          ip_hash: string | null;
+          saved: boolean;
           created_at: string;
         },
         "type" | "query_hash"
@@ -136,6 +142,25 @@ export type Database = {
         },
         "user_id" | "paystack_reference" | "amount"
       >;
+      image_questions: Table<
+        {
+          id: string;
+          label: string;
+          guidance: string | null;
+          active: boolean;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+        },
+        "label"
+      >;
+      site_settings: Table<
+        {
+          id: number;
+          allow_custom_image_questions: boolean;
+          updated_at: string;
+        }
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -149,6 +174,25 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      start_lookup: {
+        Args: {
+          p_user_id: string | null;
+          p_type: LookupType;
+          p_query_hash: string;
+          p_normalized_query: string;
+          p_ip_hash: string | null;
+          p_raw_results: Json;
+        };
+        Returns: {
+          lookup_id: string | null;
+          billing: LookupBilling | null;
+          error: "no_profile" | "banned" | "no_credits" | null;
+        }[];
+      };
+      merge_lookup_results: {
+        Args: { p_id: string; p_patch: Json };
+        Returns: undefined;
+      };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       hit_rate_limit: {
         Args: {
@@ -170,3 +214,5 @@ export type Database = {
 };
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type Lookup = Database["public"]["Tables"]["lookups"]["Row"];
+export type ImageQuestion = Database["public"]["Tables"]["image_questions"]["Row"];

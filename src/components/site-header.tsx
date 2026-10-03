@@ -3,49 +3,48 @@ import { Logo } from "./logo";
 import { isSupabaseConfigured } from "@/lib/public-env";
 import { getCurrentUser } from "@/lib/supabase/server";
 
+const linkClass = "rounded-md px-2 py-2 text-ink-muted hover:text-brand sm:px-3";
+
 export async function SiteHeader() {
   const { user, profile } = isSupabaseConfigured
     ? await getCurrentUser()
     : { user: null, profile: null };
 
   return (
-    <header className="border-b border-navy-700/70 bg-navy-900/90 backdrop-blur supports-[backdrop-filter]:bg-navy-900/70">
-      <nav aria-label="Main" className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
+    <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur">
+      <nav aria-label="Main" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
         <Logo />
-        <ul className="flex items-center gap-1 text-sm sm:gap-2">
+        <ul className="flex items-center gap-1 text-sm font-medium">
+          <li className="hidden sm:block">
+            <Link href="/" className={linkClass}>Home</Link>
+          </li>
           <li>
-            <Link href="/pricing" className="rounded-md px-2 py-2 text-ink-muted hover:text-ink sm:px-3">
-              Pricing
-            </Link>
+            <Link href="/pricing" className={linkClass}>Pricing</Link>
           </li>
           {user ? (
             <>
               <li className="hidden sm:block">
-                <Link href="/history" className="rounded-md px-3 py-2 text-ink-muted hover:text-ink">
-                  History
-                </Link>
+                <Link href="/history" className={linkClass}>History</Link>
               </li>
               {profile?.role === "admin" && (
                 <li className="hidden sm:block">
-                  <Link href="/admin" className="rounded-md px-3 py-2 text-ink-muted hover:text-ink">
-                    Admin
-                  </Link>
+                  <Link href="/admin" className={linkClass}>Admin</Link>
                 </li>
               )}
-              <li>
+              <li className="ml-1">
                 <Link
                   href="/dashboard"
-                  className="rounded-md border border-navy-600 px-3 py-2 text-ink hover:border-accent"
+                  className="rounded-full border border-brand px-4 py-2 font-semibold text-brand hover:bg-brand-soft"
                 >
                   Account
                 </Link>
               </li>
             </>
           ) : (
-            <li>
+            <li className="ml-1">
               <Link
                 href="/login"
-                className="rounded-md bg-accent px-3 py-2 font-semibold text-accent-ink hover:bg-accent-hover"
+                className="rounded-full bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-hover"
               >
                 Sign in
               </Link>

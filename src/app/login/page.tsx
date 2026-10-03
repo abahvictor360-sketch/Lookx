@@ -22,14 +22,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    <div className="flex flex-1 items-start justify-center px-4 py-14 sm:items-center">
-      <div className="w-full max-w-sm rounded-2xl border border-navy-700 bg-navy-800 p-6 shadow-xl shadow-black/30">
+    <div className="hero-glow flex flex-1 items-start justify-center px-4 py-14 sm:items-center">
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-white p-6 shadow-xl shadow-brand/5">
         <h1 className="text-2xl font-bold tracking-tight">Sign in to LookX</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Get free monthly lookups, image checks, saved history, and the ability to report numbers.
         </p>
         {authError && (
-          <p role="alert" className="mt-4 rounded-lg bg-risk-high/10 px-3 py-2 text-sm text-risk-high">
+          <p role="alert" className="mt-4 rounded-lg bg-risk-high-bg px-3 py-2 text-sm text-risk-high">
             That sign-in link was invalid or expired. Please try again.
           </p>
         )}

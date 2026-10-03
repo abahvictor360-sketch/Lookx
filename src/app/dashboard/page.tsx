@@ -16,11 +16,11 @@ export default async function DashboardPage() {
       <p className="mt-1 text-sm text-ink-muted">{user.email}</p>
 
       <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-navy-700 bg-navy-800 p-5">
+        <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
           <dt className="text-sm text-ink-muted">Plan</dt>
           <dd className="mt-1 text-xl font-semibold">{PLAN_LABEL[profile?.plan ?? "free"]}</dd>
         </div>
-        <div className="rounded-2xl border border-navy-700 bg-navy-800 p-5">
+        <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
           <dt className="text-sm text-ink-muted">Paid credits</dt>
           <dd className="mt-1 text-xl font-semibold">{profile?.credits ?? 0}</dd>
         </div>
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       <form action="/auth/signout" method="post" className="mt-8">
         <button
           type="submit"
-          className="rounded-xl border border-navy-600 px-4 py-2 text-sm font-semibold hover:border-accent"
+          className="rounded-full border border-line px-4 py-2 text-sm font-semibold hover:border-brand"
         >
           Sign out
         </button>
