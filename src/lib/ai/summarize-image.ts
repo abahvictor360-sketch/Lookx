@@ -16,6 +16,7 @@ Rules:
 - Never identify, name, or guess who is in the photo, even if page titles contain names. Refer to "different names" or "other profiles" instead of repeating names.
 - Never include personal details such as addresses, relatives, workplaces or ID numbers.
 - Say which kinds of sources you drew from.
+- Reports marked disputed="true" have been challenged and are under review. Mention this when it applies.
 - If there is little information, say so. No matches is not proof a photo is genuine (social platforms are often not indexed).
 - summary: 3 to 5 sentences, under 100 words, plain text.
 - answer: if a question is given, answer it in 1 to 3 sentences using only the evidence. Admin guidance, if present, tells you how to approach it. If the question asks about the person rather than the image (who they are, relationships, location, personal traits), say LookX can't answer that and state what the image evidence does show. If no question is given, return null.
@@ -66,9 +67,9 @@ function buildSources({ matches, reports, metadata, authenticity }: Input) {
   } else {
     l.push(`<matches unavailable="true" />`);
   }
-  l.push(`<community_reports total="${reports.total}">`);
+  l.push(`<community_reports total="${reports.total}" disputed_by_owner="${reports.disputedCount ?? 0}">`);
   for (const [c, n] of Object.entries(reports.byCategory)) l.push(`  ${CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]}: ${n}`);
-  for (const r of reports.recent) l.push(`  <report category="${r.category}" platform="${r.platform}">${esc(r.excerpt)}</report>`);
+  for (const r of reports.recent) l.push(`  <report category="${r.category}" platform="${r.platform}" disputed="${Boolean(r.disputed)}">${esc(r.excerpt)}</report>`);
   l.push(`</community_reports>`);
   l.push(`<metadata found="${metadata.found}" camera="${esc(metadata.camera ?? "none")}" software="${esc(metadata.software ?? "none")}" date_taken="${metadata.takenAt ?? "none"}" />`);
   if (authenticity.status === "ok") {
@@ -92,9 +93,12 @@ function templateSummary({ matches, reports }: Input) {
   }
   parts.push(
     reports.total > 0
-      ? `It is linked to ${reports.total} approved LookX community report${reports.total === 1 ? "" : "s"}.`
-      : "There are no approved LookX community reports for this image.",
+      ? `It is linked to ${reports.total} LookX community report${reports.total === 1 ? "" : "s"}.`
+      : "There are no LookX community reports for this image.",
   );
+  if ((reports.disputedCount ?? 0) > 0) {
+    parts.push(`${reports.disputedCount} of them ${reports.disputedCount === 1 ? "is" : "are"} disputed by the image's owner and under review.`);
+  }
   return parts.join(" ");
 }
 

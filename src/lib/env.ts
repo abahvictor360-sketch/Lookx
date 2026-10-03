@@ -27,6 +27,7 @@ export const serverEnv = {
   abstractPhoneApiKey: () => optional("ABSTRACT_PHONE_API_KEY"),
   twilioAccountSid: () => optional("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: () => optional("TWILIO_AUTH_TOKEN"),
+  twilioVerifyServiceSid: () => optional("TWILIO_VERIFY_SERVICE_SID"),
   tineyeApiKey: () => optional("TINEYE_API_KEY"),
   paystackSecretKey: () => required("PAYSTACK_SECRET_KEY"),
   hashSecret: () => required("LOOKX_HASH_SECRET"),

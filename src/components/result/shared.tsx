@@ -120,14 +120,19 @@ export function ReportsCard({ reports, done, noun }: { reports?: ReportsSection;
       {reports ? (
         reports.total === 0 ? (
           <p className="text-sm text-ink-muted">
-            No approved reports for this {noun} yet. No reports doesn&apos;t mean it&apos;s safe.
+            No community reports for this {noun} yet. No reports doesn&apos;t mean it&apos;s safe.
           </p>
         ) : (
           <>
             <p className="text-sm text-ink">
-              <strong>{reports.total}</strong> approved report{reports.total === 1 ? "" : "s"}
+              <strong>{reports.total}</strong> report{reports.total === 1 ? "" : "s"}
               {reports.recentCount > 0 && <>, {reports.recentCount} in the last 14 days</>}
             </p>
+            {(reports.disputedCount ?? 0) > 0 && (
+              <p className="mt-1 text-xs text-ink-muted">
+                {reports.disputedCount} disputed by the {noun}&apos;s owner and under review.
+              </p>
+            )}
             <ul className="mt-3 flex flex-wrap gap-2" aria-label="Report categories">
               {Object.entries(reports.byCategory).map(([cat, n]) => (
                 <li key={cat} className="rounded-full bg-risk-high-bg px-3 py-1 text-xs font-semibold text-risk-high">
@@ -138,8 +143,13 @@ export function ReportsCard({ reports, done, noun }: { reports?: ReportsSection;
             <ul className="mt-4 space-y-3">
               {reports.recent.map((r, i) => (
                 <li key={i} className="rounded-xl border border-line p-3">
-                  <p className="text-xs text-ink-muted">
+                  <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                     {CATEGORY[r.category]} · via {PLATFORM[r.platform]} · {fmtDate(r.created_at)}
+                    {r.disputed && (
+                      <span className="rounded bg-risk-caution-bg px-1.5 py-0.5 font-semibold text-risk-caution">
+                        Disputed, under review
+                      </span>
+                    )}
                   </p>
                   <p className="mt-1 text-sm text-ink">&ldquo;{r.excerpt}&rdquo;</p>
                 </li>
@@ -148,6 +158,15 @@ export function ReportsCard({ reports, done, noun }: { reports?: ReportsSection;
           </>
         )
       ) : done ? <Unavailable /> : <Skeleton />}
+      <p className="mt-4 text-xs text-ink-muted">
+        Reports come from LookX users and are checked before they go public. Reporter identities are never shown.
+        {noun === "number" && (
+          <>
+            {" "}Is this your number?{" "}
+            <Link href="/dispute" className="font-semibold text-brand underline">Dispute a report</Link>
+          </>
+        )}
+      </p>
     </Card>
   );
 }

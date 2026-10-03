@@ -13,6 +13,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         <nav aria-label="Admin">
           <ul className="flex gap-2 text-sm font-medium">
             <li><Link href="/admin" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Overview</Link></li>
+            <li><Link href="/admin/reports" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Reports</Link></li>
             <li><Link href="/admin/questions" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Image questions</Link></li>
           </ul>
         </nav>

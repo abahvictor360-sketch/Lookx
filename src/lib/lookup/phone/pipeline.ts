@@ -6,7 +6,7 @@ import { scorePhone } from "@/lib/risk/phone";
 import { summarizePhoneLookup } from "@/lib/ai/summarize-phone";
 import { enrichNumberDetails } from "./providers";
 import { searchWebForNumber } from "./web-search";
-import { getApprovedReports } from "../reports";
+import { getPublicReports } from "../reports";
 import type { NumberDetails, PhoneResults, WebSection } from "./types";
 
 const WEB_CACHE_HOURS = 24;
@@ -75,7 +75,7 @@ export async function runPhonePipeline(lookupId: string, queryHash: string, basi
           return w;
         }),
       upsertPhoneNumber(db, basic)
-        .then((id) => getApprovedReports(db, "phone", id))
+        .then((id) => getPublicReports(db, "phone", id))
         .then(async (r) => {
           await merge(db, lookupId, { reports: r });
           return r;

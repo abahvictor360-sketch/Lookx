@@ -37,6 +37,7 @@ migration. `npx supabase status -o env` prints the URL and keys for `.env.local`
 | `SERPAPI_KEY` / `BRAVE_SEARCH_API_KEY` | Web mentions | "Web search isn't available" |
 | `ABSTRACT_PHONE_API_KEY` / Twilio | Live carrier + line type | Nigerian prefix table + numbering plan |
 | `SERPAPI_KEY` (Google Lens) / `TINEYE_API_KEY` | "Where this image appears" | "Reverse image search isn't available" |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | SMS codes for disputes | Disputes unavailable in production (dev prints codes to the server log) |
 | `CRON_SECRET` | Hourly deletion of uploaded images | Cron route refuses all calls (images are still cleaned after each image lookup) |
 
 ## Database
@@ -116,6 +117,28 @@ select cron.schedule('lookx-cleanup-images', '0 * * * *', $$
 $$);
 ```
 
+## Community reports, moderation and disputes
+
+- **Reporting** (`/report`, `POST /api/report`): signed-in users report a number, or an
+  image they looked up, with a category, platform, description (20-500 chars) and an
+  optional screenshot. Screenshots are downscaled in the browser, type-checked on the
+  server, stored privately and only visible to moderators. One report per user per
+  target; 5 reports a day per user.
+- **Moderation**: reports from accounts that aren't trusted yet are held as `pending`.
+  An account is trusted once it is 7+ days old, has at least one approved report and
+  no rejected reports in the last 90 days (`src/lib/reports/constants.ts`). Admins
+  approve or reject at `/admin/reports`, can leave an internal note, and can ban a
+  reporter (which rejects their pending reports). Rejected evidence is deleted.
+- **Disputes** (`/dispute`): a number's owner picks the public reports to dispute,
+  explains why and proves ownership with an SMS code (Twilio Verify; 10-minute
+  expiry, 5 attempts counted atomically, 3 codes per number per hour). Disputed
+  reports **stay public with a "disputed" label** and still count toward the risk
+  score until a moderator decides "Keep report" or "Remove report". Hiding them
+  during review would let anyone who controls a reported number hide every report
+  about it.
+- Reporter identities are never shown publicly; public report data never selects
+  `reporter_id`.
+
 ## Image questions (admin)
 
 Admins manage the questions users can ask alongside an image at `/admin/questions`
@@ -147,7 +170,7 @@ supabase/
 - [x] Phase 1: setup, schema with RLS, auth, landing page
 - [x] Phase 2: phone lookup pipeline + results page (+ UI redesign, admin image questions)
 - [x] Phase 3: image lookup pipeline, storage, auto-delete job
-- [ ] Phase 4: community reports, moderation, disputes with OTP
+- [x] Phase 4: community reports, moderation, disputes with OTP
 - [ ] Phase 5: credits, Paystack, history
 - [ ] Phase 6: admin dashboard, rate limiting, legal pages, SEO, analytics
 - [ ] Phase 7: business tier

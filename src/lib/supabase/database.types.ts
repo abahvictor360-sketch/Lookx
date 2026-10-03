@@ -115,6 +115,9 @@ export type Database = {
           evidence_path: string | null;
           status: ReportStatus;
           created_at: string;
+          moderated_by: string | null;
+          moderated_at: string | null;
+          moderation_note: string | null;
         },
         "reporter_id" | "target_type" | "target_id" | "category" | "platform" | "description"
       >;
@@ -127,6 +130,8 @@ export type Database = {
           reason: string;
           status: DisputeStatus;
           created_at: string;
+          resolved_by: string | null;
+          resolved_at: string | null;
         },
         "report_id" | "claimant_phone" | "reason"
       >;
@@ -173,6 +178,22 @@ export type Database = {
         },
         "storage_path" | "expires_at"
       >;
+      dispute_verifications: Table<
+        {
+          id: string;
+          phone_e164: string;
+          report_ids: string[];
+          reason: string;
+          provider: "twilio" | "dev";
+          code_hash: string | null;
+          attempts: number;
+          expires_at: string;
+          verified_at: string | null;
+          ip_hash: string | null;
+          created_at: string;
+        },
+        "phone_e164" | "report_ids" | "reason" | "provider" | "expires_at"
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -210,6 +231,7 @@ export type Database = {
         };
         Returns: { image_id: string; distance: number; is_new: boolean }[];
       };
+      bump_dispute_attempt: { Args: { p_id: string }; Returns: number | null };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };
         Returns: undefined;
@@ -237,3 +259,5 @@ export type Database = {
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Lookup = Database["public"]["Tables"]["lookups"]["Row"];
 export type ImageQuestion = Database["public"]["Tables"]["image_questions"]["Row"];
+export type Report = Database["public"]["Tables"]["reports"]["Row"];
+export type Dispute = Database["public"]["Tables"]["disputes"]["Row"];

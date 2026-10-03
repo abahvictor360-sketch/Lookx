@@ -5,7 +5,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { scoreImage } from "@/lib/risk/image";
 import { analyzeImage } from "@/lib/ai/analyze-image";
 import { summarizeImageLookup } from "@/lib/ai/summarize-image";
-import { getApprovedReports } from "../reports";
+import { getPublicReports } from "../reports";
 import { SAME_IMAGE_MAX_DISTANCE, toVisionJpeg } from "./decode";
 import { reverseImageSearch } from "./reverse-search";
 import { cleanupExpiredImages, signedImageUrl } from "./storage";
@@ -48,7 +48,7 @@ export async function runImagePipeline(args: {
           .from("image_uploads")
           .update({ image_id: imageId, lookup_id: lookupId })
           .eq("storage_path", results.image.storagePath);
-        const r = await getApprovedReports(db, "image", imageId);
+        const r = await getPublicReports(db, "image", imageId);
         await merge(db, lookupId, { reports: r });
         return r;
       })(),

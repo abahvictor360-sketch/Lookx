@@ -35,13 +35,16 @@ export type WebSection = {
 export type ReportsSection = {
   total: number;
   byCategory: Partial<Record<ReportCategory, number>>;
-  /** Approved reports in the last 14 days. */
+  /** Public reports in the last 14 days. */
   recentCount: number;
+  /** Reports the number/image owner has disputed (still shown, under review). */
+  disputedCount?: number;
   recent: {
     category: ReportCategory;
     platform: ReportPlatform;
     excerpt: string;
     created_at: string;
+    disputed?: boolean;
   }[];
 };
 
