@@ -14,11 +14,15 @@
     "@anthropic-ai/sdk": "^0.131.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "blockhash-core": "^0.1.0",
+    "exifr": "^7.1.3",
     "libphonenumber-js": "^1.13.14",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
+    "undici": "^8.11.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {

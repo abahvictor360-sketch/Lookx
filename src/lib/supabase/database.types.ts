@@ -161,6 +161,18 @@ export type Database = {
           updated_at: string;
         }
       >;
+      image_uploads: Table<
+        {
+          id: string;
+          image_id: string | null;
+          lookup_id: string | null;
+          storage_path: string;
+          expires_at: string;
+          deleted_at: string | null;
+          created_at: string;
+        },
+        "storage_path" | "expires_at"
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -188,6 +200,15 @@ export type Database = {
           billing: LookupBilling | null;
           error: "no_profile" | "banned" | "no_credits" | null;
         }[];
+      };
+      match_or_create_image: {
+        Args: {
+          p_hash: string;
+          p_max_distance: number;
+          p_storage_path: string;
+          p_expires_at: string;
+        };
+        Returns: { image_id: string; distance: number; is_new: boolean }[];
       };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };

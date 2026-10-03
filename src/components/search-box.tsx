@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACCEPTED_IMAGE_TYPES, detectInput, validateImageFile } from "@/lib/lookup/detect";
+import { createClient } from "@/lib/supabase/client";
 import {
   MAX_QUESTION_LENGTH,
   REDIRECT_HINT,
@@ -68,6 +69,27 @@ export function SearchBox({ isSignedIn, questions, allowCustomQuestions }: Props
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  /**
+   * Upload straight to private storage with a one-time signed URL (bypasses
+   * the serverless request size limit). The server validates the file next.
+   */
+  async function uploadDirect(f: File): Promise<{ path: string } | ApiError> {
+    try {
+      const res = await fetch("/api/lookup/image/upload-url", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as ApiError & { path?: string; token?: string };
+      if (!res.ok || !data.path || !data.token) {
+        return { error: data.error ?? "Couldn't start the upload. Please try again.", code: data.code };
+      }
+      const { error } = await createClient()
+        .storage.from("lookup-images")
+        .uploadToSignedUrl(data.path, data.token, f, { contentType: f.type });
+      if (error) return { error: "Upload failed. Check your connection and try again." };
+      return { path: data.path };
+    } catch {
+      return { error: "Upload failed. Check your connection and try again." };
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -84,11 +106,18 @@ export function SearchBox({ isSignedIn, questions, allowCustomQuestions }: Props
     const question = usingCustom && customCheck.allowed ? customCheck.question : undefined;
     let request: Promise<Response>;
     if (file) {
-      const body = new FormData();
-      body.append("image", file);
-      if (questionId) body.append("question_id", questionId);
-      if (question) body.append("question", question);
-      request = fetch("/api/lookup/image", { method: "POST", body });
+      setSubmitting(true);
+      const uploaded = await uploadDirect(file);
+      if (!("path" in uploaded)) {
+        setError(uploaded);
+        setSubmitting(false);
+        return;
+      }
+      request = fetch("/api/lookup/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upload_path: uploaded.path, question_id: questionId ?? undefined, question }),
+      });
     } else if (detected.kind === "image_url") {
       request = fetch("/api/lookup/image", {
         method: "POST",

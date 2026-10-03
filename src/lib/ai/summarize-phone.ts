@@ -1,12 +1,10 @@
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { serverEnv } from "@/lib/env";
+import { AiNotConfiguredError, callClaudeJson, logAiError } from "./client";
 import { CATEGORY_LABEL } from "@/lib/risk/phone";
 import type { AiSection, NumberDetails, ReportsSection, RiskSection, WebSection } from "@/lib/lookup/phone/types";
 
-const MODEL = "claude-opus-5-5";
 const TIMEOUT_MS = 12_000;
 
 /**
@@ -101,42 +99,16 @@ export async function summarizePhoneLookup(input: {
   web: WebSection;
   risk: RiskSection;
 }): Promise<AiSection> {
-  let apiKey: string;
   try {
-    apiKey = serverEnv.anthropicApiKey();
-  } catch {
-    return { status: "not_configured", summary: templateSummary(input), risk_reasons: input.risk.reasons, source_count: 0 };
-  }
-
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 1 });
-
-  try {
-    const response = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 4000,
-      // Short, factual task: low effort keeps latency inside the 10s budget.
-      output_config: {
-        effort: "low",
-        format: { type: "json_schema", schema: OUTPUT_JSON_SCHEMA },
-      },
-      // If a safety classifier declines, retry server-side on the recommended model.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+    const parsed = await callClaudeJson({
       system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `${buildSources(input)}\n\nWrite the JSON summary for this lookup.`,
-        },
-      ],
+      content: [{ type: "text", text: `${buildSources(input)}\n\nWrite the JSON summary for this lookup.` }],
+      schema: OutputSchema,
+      jsonSchema: OUTPUT_JSON_SCHEMA,
+      timeoutMs: TIMEOUT_MS,
+      // Short, factual task: low effort keeps latency inside the 10s budget.
+      effort: "low",
     });
-
-    if (response.stop_reason === "refusal") throw new Error("Summary request was declined");
-    const text = response.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-    const parsed = OutputSchema.parse(JSON.parse(text));
     return {
       status: "ok",
       summary: parsed.summary.trim(),
@@ -144,11 +116,12 @@ export async function summarizePhoneLookup(input: {
       source_count: parsed.source_count,
     };
   } catch (error) {
-    if (error instanceof Anthropic.APIError) {
-      console.warn(`[lookup] AI summary API error ${error.status}`, error.message);
-    } else {
-      console.warn("[lookup] AI summary failed", (error as Error).message);
-    }
-    return { status: "error", summary: templateSummary(input), risk_reasons: input.risk.reasons, source_count: 0 };
+    logAiError("phone summary", error);
+    return {
+      status: error instanceof AiNotConfiguredError ? "not_configured" : "error",
+      summary: templateSummary(input),
+      risk_reasons: input.risk.reasons,
+      source_count: 0,
+    };
   }
 }

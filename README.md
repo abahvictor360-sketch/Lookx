@@ -36,6 +36,8 @@ migration. `npx supabase status -o env` prints the URL and keys for `.env.local`
 | `ANTHROPIC_API_KEY` | AI summaries | A factual template summary is shown |
 | `SERPAPI_KEY` / `BRAVE_SEARCH_API_KEY` | Web mentions | "Web search isn't available" |
 | `ABSTRACT_PHONE_API_KEY` / Twilio | Live carrier + line type | Nigerian prefix table + numbering plan |
+| `SERPAPI_KEY` (Google Lens) / `TINEYE_API_KEY` | "Where this image appears" | "Reverse image search isn't available" |
+| `CRON_SECRET` | Hourly deletion of uploaded images | Cron route refuses all calls (images are still cleaned after each image lookup) |
 
 ## Database
 
@@ -68,6 +70,52 @@ update public.profiles set role = 'admin' where email = 'you@example.com';
 
 Risk scoring lives in `src/lib/risk/phone.ts` (unit-tested, every point has a reason).
 
+## How an image lookup works
+
+1. The browser asks `POST /api/lookup/image/upload-url` for a one-time signed upload
+   URL and uploads straight to the private `lookup-images` bucket. (Serverless
+   functions cap request bodies at ~4.5MB; this keeps 10MB uploads working.)
+2. `POST /api/lookup/image { upload_path | url, question_id | question }` checks the
+   upload belongs to the user, sniffs the real file type from its bytes, reads
+   dimensions and EXIF, computes a 256-bit perceptual hash, charges the lookup
+   (3 free image lookups a month, then credits) and returns the id.
+   Image links are fetched server-side with SSRF protection (public IPs only,
+   checked again at connect time; redirects re-validated; 10MB cap).
+3. The pipeline (in `after()`) runs in parallel: match the hash against known images
+   (Hamming distance ≤ 16 of 256 bits, so resized / re-compressed / re-encoded copies
+   still link to existing reports), reverse image search, and a Claude vision check
+   for AI generation, editing, stock/catalog photos and visible watermarks. Then the
+   risk score, then a Claude summary that also answers the user's question.
+
+Design decisions to know about:
+
+- **Exact matches only.** Google Lens is queried for pages containing the *same*
+  image, never "visually similar" results, which for photos of people amounts to
+  face matching.
+- **GPS is never shown or stored.** The metadata panel says whether location data is
+  present, but not where, so LookX can't be used to locate someone.
+- **Crops and mirror images don't match.** Blockhash survives resizing and
+  compression (distance 0-2 in tests) but not cropping (~32) or flipping.
+
+### Deleting images after 24 hours
+
+`vercel.json` schedules `GET /api/cron/cleanup-images` hourly (Vercel sends
+`Authorization: Bearer $CRON_SECRET`). Each image lookup also cleans up a batch of
+expired files. The `images` row (perceptual hash) is kept so future uploads of the
+same picture still match reports; only the file is deleted.
+
+Vercel's Hobby plan only runs crons once a day. On Hobby, schedule the job from
+Supabase instead (enable the `pg_cron` and `pg_net` extensions first):
+
+```sql
+select cron.schedule('lookx-cleanup-images', '0 * * * *', $$
+  select net.http_get(
+    url := 'https://YOUR_DOMAIN/api/cron/cleanup-images',
+    headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET')
+  );
+$$);
+```
+
 ## Image questions (admin)
 
 Admins manage the questions users can ask alongside an image at `/admin/questions`
@@ -98,7 +146,7 @@ supabase/
 
 - [x] Phase 1: setup, schema with RLS, auth, landing page
 - [x] Phase 2: phone lookup pipeline + results page (+ UI redesign, admin image questions)
-- [ ] Phase 3: image lookup pipeline, storage, auto-delete job
+- [x] Phase 3: image lookup pipeline, storage, auto-delete job
 - [ ] Phase 4: community reports, moderation, disputes with OTP
 - [ ] Phase 5: credits, Paystack, history
 - [ ] Phase 6: admin dashboard, rate limiting, legal pages, SEO, analytics

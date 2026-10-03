@@ -6,10 +6,10 @@ import { scorePhone } from "@/lib/risk/phone";
 import { summarizePhoneLookup } from "@/lib/ai/summarize-phone";
 import { enrichNumberDetails } from "./providers";
 import { searchWebForNumber } from "./web-search";
-import type { NumberDetails, PhoneResults, ReportsSection, WebSection } from "./types";
+import { getApprovedReports } from "../reports";
+import type { NumberDetails, PhoneResults, WebSection } from "./types";
 
 const WEB_CACHE_HOURS = 24;
-const RECENT_DAYS = 14;
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -36,35 +36,6 @@ async function upsertPhoneNumber(db: Admin, details: NumberDetails) {
     .single();
   if (error) throw error;
   return data.id;
-}
-
-async function getReports(db: Admin, phoneId: string): Promise<ReportsSection> {
-  const { data, error } = await db
-    .from("reports")
-    .select("category, platform, description, created_at")
-    .eq("target_type", "phone")
-    .eq("target_id", phoneId)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (error) throw error;
-
-  const since = Date.now() - RECENT_DAYS * 86_400_000;
-  const byCategory: ReportsSection["byCategory"] = {};
-  for (const r of data) byCategory[r.category] = (byCategory[r.category] ?? 0) + 1;
-
-  return {
-    total: data.length,
-    byCategory,
-    recentCount: data.filter((r) => Date.parse(r.created_at) >= since).length,
-    // Reporter identities are never selected, so they can't leak.
-    recent: data.slice(0, 3).map((r) => ({
-      category: r.category,
-      platform: r.platform,
-      excerpt: r.description.length > 220 ? `${r.description.slice(0, 217)}…` : r.description,
-      created_at: r.created_at,
-    })),
-  };
 }
 
 /** Reuse web results from a lookup of the same number in the last 24h (saves API cost). */
@@ -104,7 +75,7 @@ export async function runPhonePipeline(lookupId: string, queryHash: string, basi
           return w;
         }),
       upsertPhoneNumber(db, basic)
-        .then((id) => getReports(db, id))
+        .then((id) => getApprovedReports(db, "phone", id))
         .then(async (r) => {
           await merge(db, lookupId, { reports: r });
           return r;
