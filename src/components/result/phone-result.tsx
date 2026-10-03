@@ -126,7 +126,7 @@ export function PhoneResultView({ initial }: { initial: PublicLookup }) {
           <div className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm" aria-live="polite">
             {risk ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                <RiskBadge level={risk.level} />
+                <span className="self-start sm:self-auto"><RiskBadge level={risk.level} /></span>
                 <p className="font-medium text-ink">{risk.headline}</p>
               </div>
             ) : done ? (
