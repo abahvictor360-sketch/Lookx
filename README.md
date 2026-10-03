@@ -38,6 +38,9 @@ migration. `npx supabase status -o env` prints the URL and keys for `.env.local`
 | `ABSTRACT_PHONE_API_KEY` / Twilio | Live carrier + line type | Nigerian prefix table + numbering plan |
 | `SERPAPI_KEY` (Google Lens) / `TINEYE_API_KEY` | "Where this image appears" | "Reverse image search isn't available" |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | SMS codes for disputes | Disputes unavailable in production (dev prints codes to the server log) |
+| `PAYSTACK_SECRET_KEY` / `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | Buying Starter credits and Pro | Checkout returns "Payments are unavailable" |
+| `PAYSTACK_PRO_PLAN_CODE` | Pro auto-renewing monthly | Pro is a one-off 1-month pass |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | "Talk to us" (Business) and privacy contact | Those links are hidden |
 | `CRON_SECRET` | Hourly deletion of uploaded images | Cron route refuses all calls (images are still cleaned after each image lookup) |
 
 ## Database
@@ -138,6 +141,28 @@ $$);
   about it.
 - Reporter identities are never shown publicly; public report data never selects
   `reporter_id`.
+
+## Payments, credits and history
+
+- **Prices** live in `src/lib/plans.ts` (Starter ₦2,000 = 30 credits that never expire;
+  Pro ₦5,000/month = 150 lookups, priority results, full history). The server sets
+  every price; the browser only receives a Paystack access code.
+- **Checkout**: `POST /api/paystack/initialize` creates a pending transaction and opens
+  Paystack's inline popup (falls back to Paystack's hosted page if the popup can't load).
+- **Applying payments**: both `POST /api/paystack/webhook` (signature checked with
+  HMAC-SHA512) and `GET /api/paystack/verify` re-verify the transaction with Paystack's
+  API and call `public.fulfill_payment`, which applies a payment exactly once and
+  rejects amount/currency mismatches. Pro renewals (`charge.success` with the Pro plan
+  code and a reference we didn't create) extend Pro by a month via
+  `public.record_pro_renewal`, also once.
+- **Webhook URL** to set in the Paystack dashboard: `https://YOUR_DOMAIN/api/paystack/webhook`.
+- **Allowances**: free/monthly allowances are used first, then credits. An expired Pro
+  falls back to the free allowance automatically.
+- **Priority results** (Pro/Business): deeper AI analysis (higher effort) and higher
+  burst limits.
+- **History** (`/history`): filter by type or saved, re-run phone lookups any time and
+  image lookups while the file still exists (24h). Free/Starter see 30 days plus saved
+  results; Pro and Business see everything.
 
 ## Image questions (admin)
 

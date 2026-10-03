@@ -59,6 +59,9 @@ export type Database = {
           credits: number;
           banned: boolean;
           created_at: string;
+          plan_expires_at: string | null;
+          paystack_customer_code: string | null;
+          paystack_subscription_code: string | null;
         },
         "id"
       >;
@@ -99,6 +102,7 @@ export type Database = {
           billing: LookupBilling;
           ip_hash: string | null;
           saved: boolean;
+          image_id: string | null;
           created_at: string;
         },
         "type" | "query_hash"
@@ -144,6 +148,9 @@ export type Database = {
           credits_added: number;
           status: TransactionStatus;
           created_at: string;
+          product: "starter" | "pro";
+          currency: string;
+          paid_at: string | null;
         },
         "user_id" | "paystack_reference" | "amount"
       >;
@@ -232,6 +239,18 @@ export type Database = {
         Returns: { image_id: string; distance: number; is_new: boolean }[];
       };
       bump_dispute_attempt: { Args: { p_id: string }; Returns: number | null };
+      fulfill_payment: {
+        Args: { p_reference: string; p_amount: number; p_currency: string; p_customer_code: string | null };
+        Returns: { ok: boolean; already_applied: boolean; user_id: string | null; product: "starter" | "pro" | null }[];
+      };
+      record_pro_renewal: {
+        Args: { p_reference: string; p_amount: number; p_currency: string; p_customer_code: string };
+        Returns: { ok: boolean; already_applied: boolean; user_id: string | null }[];
+      };
+      my_usage_this_month: {
+        Args: Record<string, never>;
+        Returns: { free_phone: number; free_image: number; plan_used: number; credit_used: number }[];
+      };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };
         Returns: undefined;
@@ -261,3 +280,4 @@ export type Lookup = Database["public"]["Tables"]["lookups"]["Row"];
 export type ImageQuestion = Database["public"]["Tables"]["image_questions"]["Row"];
 export type Report = Database["public"]["Tables"]["reports"]["Row"];
 export type Dispute = Database["public"]["Tables"]["disputes"]["Row"];
+export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];

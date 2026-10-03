@@ -29,8 +29,10 @@ export async function runImagePipeline(args: {
   phash: string;
   results: ImageResults;
   question: { label: string; guidance: string | null } | null;
+  /** Pro/Business "priority results": deeper analysis. */
+  priority?: boolean;
 }) {
-  const { lookupId, buffer, phash, results, question } = args;
+  const { lookupId, buffer, phash, results, question, priority = false } = args;
   const db = createAdminClient();
   try {
     const [reports, matches, authenticity] = await Promise.all([
@@ -44,10 +46,16 @@ export async function runImagePipeline(args: {
         });
         if (error || !data?.[0]) throw error ?? new Error("match_or_create_image returned nothing");
         const imageId = data[0].image_id;
-        await db
-          .from("image_uploads")
-          .update({ image_id: imageId, lookup_id: lookupId })
-          .eq("storage_path", results.image.storagePath);
+        await Promise.all([
+          db.from("lookups").update({ image_id: imageId }).eq("id", lookupId),
+          // First lookup of an upload claims it; re-runs reuse the same file.
+          db.from("image_uploads").update({ image_id: imageId }).eq("storage_path", results.image.storagePath),
+          db
+            .from("image_uploads")
+            .update({ lookup_id: lookupId })
+            .eq("storage_path", results.image.storagePath)
+            .is("lookup_id", null),
+        ]);
         const r = await getPublicReports(db, "image", imageId);
         await merge(db, lookupId, { reports: r });
         return r;
@@ -62,7 +70,7 @@ export async function runImagePipeline(args: {
         return m;
       })(),
       (async () => {
-        const a = await analyzeImage(await toVisionJpeg(buffer), results.metadata.software);
+        const a = await analyzeImage(await toVisionJpeg(buffer), results.metadata.software, priority);
         await merge(db, lookupId, { authenticity: a });
         return a;
       })(),
@@ -78,6 +86,7 @@ export async function runImagePipeline(args: {
       authenticity,
       risk,
       question,
+      priority,
     });
     await merge(db, lookupId, { ai });
 

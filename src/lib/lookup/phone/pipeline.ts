@@ -60,7 +60,12 @@ async function cachedWeb(db: Admin, lookupId: string, queryHash: string): Promis
  * lookups.raw_results as soon as it is ready, so the results page can render
  * progressively: details -> web + reports -> risk -> AI summary.
  */
-export async function runPhonePipeline(lookupId: string, queryHash: string, basic: NumberDetails) {
+export async function runPhonePipeline(
+  lookupId: string,
+  queryHash: string,
+  basic: NumberDetails,
+  opts: { priority?: boolean } = {},
+) {
   const db = createAdminClient();
   try {
     const [number, web, reports] = await Promise.all([
@@ -85,7 +90,7 @@ export async function runPhonePipeline(lookupId: string, queryHash: string, basi
     const risk = scorePhone({ lineType: number.lineType, reports, web });
     await merge(db, lookupId, { risk });
 
-    const ai = await summarizePhoneLookup({ number, reports, web, risk });
+    const ai = await summarizePhoneLookup({ number, reports, web, risk, priority: opts.priority });
     await merge(db, lookupId, { ai });
 
     await db

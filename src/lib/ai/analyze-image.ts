@@ -51,7 +51,11 @@ const JSON_SCHEMA = {
 
 const unknown = (note: string) => ({ level: "unknown" as Likelihood, note });
 
-export async function analyzeImage(jpeg: Buffer, metadataSoftware: string | null): Promise<AuthenticitySection> {
+export async function analyzeImage(
+  jpeg: Buffer,
+  metadataSoftware: string | null,
+  priority = false,
+): Promise<AuthenticitySection> {
   try {
     const r = await callClaudeJson({
       system: SYSTEM_PROMPT,
@@ -65,7 +69,7 @@ export async function analyzeImage(jpeg: Buffer, metadataSoftware: string | null
       schema: Schema,
       jsonSchema: JSON_SCHEMA,
       timeoutMs: TIMEOUT_MS,
-      effort: "low",
+      effort: priority ? "medium" : "low",
     });
     return {
       status: "ok",

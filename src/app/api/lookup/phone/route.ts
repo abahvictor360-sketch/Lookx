@@ -8,6 +8,7 @@ import { getClientIp, getOrCreateDeviceId } from "@/lib/request-meta";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GUEST_PHONE_LOOKUPS_PER_DAY } from "@/lib/plans";
+import { hasPriority } from "@/lib/priority";
 import type { Json } from "@/lib/supabase/database.types";
 
 // The pipeline runs in after(); give it room beyond the 10s target.
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
   if (!(await hitRateLimit(ipHash, "lookup_burst_ip", 600, 30))) {
     return fail(429, "rate_limited", "Too many lookups from your network. Please wait a few minutes.");
   }
-  if (user && !(await hitRateLimit(`user:${user.id}`, "lookup_burst_user", 600, 20))) {
+  const priority = await hasPriority(supabase, user?.id);
+  if (user && !(await hitRateLimit(`user:${user.id}`, "lookup_burst_user", 600, priority ? 60 : 20))) {
     return fail(429, "rate_limited", "You're looking up numbers very quickly. Please wait a few minutes.");
   }
 
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
   if (!started.lookup_id) return fail(500, "server_error", "Something went wrong. Please try again.");
 
   const lookupId = started.lookup_id;
-  after(() => runPhonePipeline(lookupId, queryHash, details));
+  after(() => runPhonePipeline(lookupId, queryHash, details, { priority }));
 
   return NextResponse.json({ id: lookupId });
 }

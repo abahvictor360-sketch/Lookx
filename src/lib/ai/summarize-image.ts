@@ -50,6 +50,8 @@ type Input = {
   authenticity: AuthenticitySection;
   risk: RiskSection;
   question: { label: string; guidance: string | null } | null;
+  /** Pro/Business "priority results": deeper analysis. */
+  priority?: boolean;
 };
 
 const esc = (s: string) => s.replace(/[<>]/g, "");
@@ -114,7 +116,7 @@ export async function summarizeImageLookup(input: Input): Promise<ImageAiSection
       schema: Schema,
       jsonSchema: JSON_SCHEMA,
       timeoutMs: TIMEOUT_MS,
-      effort: "low",
+      effort: input.priority ? "medium" : "low",
     });
     return {
       status: "ok",

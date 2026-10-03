@@ -25,14 +25,17 @@ export async function isTrustedReporter(db: Admin, userId: string, accountCreate
   return (approved.count ?? 0) >= 1 && (rejected.count ?? 0) === 0;
 }
 
-/** The image a lookup refers to (via its upload record), if any. */
+/** The image (perceptual hash row) an image lookup matched, if any. */
 export async function imageIdForLookup(db: Admin, lookupId: string) {
-  const { data } = await db
+  const { data } = await db.from("lookups").select("image_id").eq("id", lookupId).eq("type", "image").maybeSingle();
+  if (data?.image_id) return data.image_id;
+  // Older lookups: fall back to the upload record.
+  const { data: upload } = await db
     .from("image_uploads")
     .select("image_id")
     .eq("lookup_id", lookupId)
     .not("image_id", "is", null)
     .limit(1)
     .maybeSingle();
-  return data?.image_id ?? null;
+  return upload?.image_id ?? null;
 }

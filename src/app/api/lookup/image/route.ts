@@ -13,6 +13,7 @@ import { extractMetadata } from "@/lib/lookup/image/metadata";
 import { runImagePipeline } from "@/lib/lookup/image/pipeline";
 import { IMAGE_BUCKET, IMAGE_RETENTION_HOURS } from "@/lib/lookup/image/storage";
 import type { ImageResults } from "@/lib/lookup/image/types";
+import { hasPriority } from "@/lib/priority";
 
 export const maxDuration = 45;
 
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
   let file: File | null = null;
   let imageUrl: string | null = null;
   let uploadPath: string | null = null;
+  let rerunOf: string | null = null;
+  let rerunQuestion: ImageResults["question"] = null;
   let questionId: string | null = null;
   let questionText: string | null = null;
 
@@ -61,14 +64,32 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     imageUrl = typeof body?.url === "string" ? body.url.trim().slice(0, 2048) : null;
     uploadPath = typeof body?.upload_path === "string" ? body.upload_path : null;
+    rerunOf = typeof body?.rerun_of === "string" ? body.rerun_of : null;
     questionId = typeof body?.question_id === "string" && body.question_id ? body.question_id : null;
     questionText = typeof body?.question === "string" ? body.question : null;
   }
+  const admin = createAdminClient();
+
+  // Re-run one of the user's own image lookups while its file still exists (24h).
+  if (rerunOf) {
+    const { data: prev } = /^[0-9a-f-]{36}$/i.test(rerunOf)
+      ? await admin.from("lookups").select("user_id, type, raw_results").eq("id", rerunOf).maybeSingle()
+      : { data: null };
+    const prevResults = prev?.raw_results as ImageResults | undefined;
+    if (!prev || prev.user_id !== user.id || prev.type !== "image" || !prevResults?.image?.storagePath) {
+      return fail(404, "not_found", "Lookup not found.");
+    }
+    if (Date.parse(prevResults.image.expiresAt) <= Date.now()) {
+      return fail(410, "image_deleted", "This image was deleted after 24 hours. Upload it again to re-run.");
+    }
+    uploadPath = prevResults.image.storagePath;
+    rerunQuestion = prevResults.question;
+  }
+  const isRerun = Boolean(rerunOf);
   if (!file && !imageUrl && !uploadPath) return fail(400, "invalid_input", "Upload an image or paste an image link.");
 
-  const admin = createAdminClient();
   // Direct uploads must be this user's own, unused, unexpired upload.
-  if (uploadPath) {
+  if (uploadPath && !isRerun) {
     const ownPath = new RegExp(`^${user.id}/[0-9a-f-]{36}$`);
     const { data: pending } = ownPath.test(uploadPath)
       ? await admin
@@ -88,15 +109,21 @@ export async function POST(request: Request) {
   };
   if (file && file.size > MAX_IMAGE_BYTES) return fail(413, "too_large", "Images must be 10MB or smaller.");
 
-  const resolved = await resolveImageQuestion(questionId, questionText);
-  if (!resolved.ok) return fail(422, resolved.code, resolved.error);
+  const resolvedInput = await resolveImageQuestion(questionId, questionText);
+  if (!resolvedInput.ok) return fail(422, resolvedInput.code, resolvedInput.error);
+  // A re-run keeps the original (already validated) question unless a new one was chosen.
+  const resolved =
+    !resolvedInput.question && rerunQuestion
+      ? { ok: true as const, question: { ...rerunQuestion, guidance: null } }
+      : resolvedInput;
 
   // ---- Rate limits -----------------------------------------------------------
   const ipHash = hashValue("ip", await getClientIp());
   if (!(await hitRateLimit(ipHash, "lookup_burst_ip", 600, 30))) {
     return fail(429, "rate_limited", "Too many lookups from your network. Please wait a few minutes.");
   }
-  if (!(await hitRateLimit(`user:${user.id}`, "image_burst_user", 600, 10))) {
+  const priority = await hasPriority(supabase, user.id);
+  if (!(await hitRateLimit(`user:${user.id}`, "image_burst_user", 600, priority ? 30 : 10))) {
     return fail(429, "rate_limited", "You're looking up images very quickly. Please wait a few minutes.");
   }
 
@@ -122,7 +149,7 @@ export async function POST(request: Request) {
     info = await inspectImage(buffer); // real MIME from magic bytes, size, dimensions
     [phash, metadata] = await Promise.all([perceptualHash(buffer), extractMetadata(buffer)]);
   } catch (error) {
-    if (uploadPath) await discard(uploadPath); // never keep files that failed validation
+    if (uploadPath && !isRerun) await discard(uploadPath); // never keep files that failed validation
     if (error instanceof ImageInputError) return fail(400, "invalid_image", error.message);
     console.error("[lookup] image read failed", error);
     return fail(400, "invalid_image", "We couldn't read that image.");
@@ -175,7 +202,7 @@ export async function POST(request: Request) {
   });
   const started = data?.[0];
   if (error || !started?.lookup_id) {
-    await discard(storagePath);
+    if (!isRerun) await discard(storagePath);
     if (started?.error === "banned") {
       return fail(403, "banned", "This account has been suspended for breaking the acceptable use policy.");
     }
@@ -188,7 +215,9 @@ export async function POST(request: Request) {
 
   const lookupId = started.lookup_id;
   // Claim the upload for this lookup right away so it can't be reused.
-  await admin.from("image_uploads").update({ lookup_id: lookupId }).eq("storage_path", storagePath);
+  if (!isRerun) {
+    await admin.from("image_uploads").update({ lookup_id: lookupId }).eq("storage_path", storagePath);
+  }
   if (resolved.question) {
     await admin.from("lookups").update({ question: resolved.question.label }).eq("id", lookupId);
   }
@@ -200,6 +229,7 @@ export async function POST(request: Request) {
       phash,
       results,
       question: resolved.question ? { label: resolved.question.label, guidance: resolved.question.guidance } : null,
+      priority,
     }),
   );
 

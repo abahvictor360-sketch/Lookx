@@ -105,6 +105,8 @@ export async function summarizePhoneLookup(input: {
   reports: ReportsSection;
   web: WebSection;
   risk: RiskSection;
+  /** Pro/Business "priority results": deeper analysis. */
+  priority?: boolean;
 }): Promise<AiSection> {
   try {
     const parsed = await callClaudeJson({
@@ -114,7 +116,7 @@ export async function summarizePhoneLookup(input: {
       jsonSchema: OUTPUT_JSON_SCHEMA,
       timeoutMs: TIMEOUT_MS,
       // Short, factual task: low effort keeps latency inside the 10s budget.
-      effort: "low",
+      effort: input.priority ? "medium" : "low",
     });
     return {
       status: "ok",
