@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { Analytics } from "@/components/analytics";
 import { publicEnv } from "@/lib/public-env";
 import "./globals.css";
 
@@ -20,11 +21,14 @@ export const metadata: Metadata = {
   description:
     "Check a phone number or image for scam reports, fake vendors, impersonation and stolen photos before you pay, date, or trust.",
   openGraph: {
-    title: "LookX",
-    description: "Look it up before you pay, date, or trust.",
+    title: "LookX: Look it up before you pay, date, or trust",
+    description: "Check a phone number or photo for scam reports, fake vendors, impersonation and stolen photos.",
     siteName: "LookX",
     type: "website",
+    locale: "en_NG",
   },
+  twitter: { card: "summary_large_image" },
+  alternates: { canonical: "/" },
 };
 
 export const viewport: Viewport = {
@@ -48,6 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
+        <Analytics />
       </body>
     </html>
   );

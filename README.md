@@ -164,6 +164,27 @@ $$);
   image lookups while the file still exists (24h). Free/Starter see 30 days plus saved
   results; Pro and Business see everything.
 
+## Admin, legal, SEO and analytics
+
+- **Admin** (`/admin`, admin role only, enforced in pages, server actions and SQL):
+  overview with lookups per day, revenue, users, risk mix and items needing attention
+  (`public.admin_stats`); `/admin/reports` moderation; `/admin/users` search, plan and
+  credit changes, ban/unban, and **flagged users** (heavy lookups in 24h, the same
+  number looked up 8+ times in 7 days, repeated rejected reports; `public.flagged_users`);
+  `/admin/requests` NDPA/GDPR data requests with a 30-day clock; `/admin/questions`.
+- **Rate limiting**: every lookup, report, dispute, OTP, checkout, data request and
+  result-polling endpoint is limited per user and/or per hashed IP
+  (`public.hit_rate_limit`). The hourly cron prunes old rate-limit and OTP rows.
+- **Legal**: `/legal/privacy` (NDPA 2023 + GDPR), `/legal/terms` (with the acceptable
+  use policy), `/legal/data-request`. **Replace `[LookX legal entity]` and have both
+  reviewed by a lawyer before launch.**
+- **SEO**: per-page metadata, `sitemap.xml`, `robots.txt` (results, account and admin
+  pages excluded), generated Open Graph image, JSON-LD on the home page.
+- **Analytics**: Vercel Analytics (cookieless; result ids and query strings are
+  stripped before sending). Enable it in the Vercel project.
+- **Security headers**: HSTS, nosniff, frame denial, referrer and permissions policies
+  (`next.config.ts`). A nonce-based CSP is still to do once production domains are fixed.
+
 ## Image questions (admin)
 
 Admins manage the questions users can ask alongside an image at `/admin/questions`
@@ -197,5 +218,5 @@ supabase/
 - [x] Phase 3: image lookup pipeline, storage, auto-delete job
 - [x] Phase 4: community reports, moderation, disputes with OTP
 - [ ] Phase 5: credits, Paystack, history
-- [ ] Phase 6: admin dashboard, rate limiting, legal pages, SEO, analytics
+- [x] Phase 6: admin dashboard, rate limiting, legal pages, SEO, analytics
 - [ ] Phase 7: business tier

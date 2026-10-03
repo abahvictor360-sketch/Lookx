@@ -201,6 +201,22 @@ export type Database = {
         },
         "phone_e164" | "report_ids" | "reason" | "provider" | "expires_at"
       >;
+      data_requests: Table<
+        {
+          id: string;
+          email: string;
+          phone_e164: string | null;
+          request_type: "access" | "deletion" | "correction" | "review_reports" | "objection" | "other";
+          details: string;
+          status: "open" | "in_progress" | "closed";
+          admin_note: string | null;
+          handled_by: string | null;
+          handled_at: string | null;
+          ip_hash: string | null;
+          created_at: string;
+        },
+        "email" | "request_type" | "details"
+      >;
       rate_limits: Table<
         {
           id: string;
@@ -251,6 +267,11 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { free_phone: number; free_image: number; plan_used: number; credit_used: number }[];
       };
+      admin_stats: { Args: Record<string, never>; Returns: Json };
+      flagged_users: {
+        Args: Record<string, never>;
+        Returns: { user_id: string; email: string | null; reason: string; metric: number; banned: boolean; created_at: string }[];
+      };
       merge_lookup_results: {
         Args: { p_id: string; p_patch: Json };
         Returns: undefined;
@@ -281,3 +302,4 @@ export type ImageQuestion = Database["public"]["Tables"]["image_questions"]["Row
 export type Report = Database["public"]["Tables"]["reports"]["Row"];
 export type Dispute = Database["public"]["Tables"]["disputes"]["Row"];
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
+export type DataRequest = Database["public"]["Tables"]["data_requests"]["Row"];

@@ -36,3 +36,14 @@ export async function signedImageUrl(path: string, seconds: number) {
   const { data, error } = await createAdminClient().storage.from(IMAGE_BUCKET).createSignedUrl(path, seconds);
   return error ? null : data.signedUrl;
 }
+
+/** Prune housekeeping tables: rate-limit windows (2 days) and OTP records (7 days). */
+export async function pruneOperationalData() {
+  const db = createAdminClient();
+  const twoDays = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  const week = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  await Promise.all([
+    db.from("rate_limits").delete().lt("window_start", twoDays),
+    db.from("dispute_verifications").delete().lt("created_at", week),
+  ]);
+}

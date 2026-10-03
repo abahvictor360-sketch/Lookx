@@ -11,9 +11,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">Admin</h1>
         <nav aria-label="Admin">
-          <ul className="flex gap-2 text-sm font-medium">
+          <ul className="flex flex-wrap gap-1 text-sm font-medium">
             <li><Link href="/admin" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Overview</Link></li>
             <li><Link href="/admin/reports" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Reports</Link></li>
+            <li><Link href="/admin/users" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Users</Link></li>
+            <li><Link href="/admin/requests" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Requests</Link></li>
             <li><Link href="/admin/questions" className="rounded-full px-3 py-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">Image questions</Link></li>
           </ul>
         </nav>

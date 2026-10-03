@@ -3,6 +3,20 @@ import { SearchBox } from "@/components/search-box";
 import { isSupabaseConfigured } from "@/lib/public-env";
 import { createClient } from "@/lib/supabase/server";
 import { getQuestionConfig } from "@/lib/lookup/questions-config";
+import { publicEnv } from "@/lib/public-env";
+
+/** Structured data so search engines understand what LookX is. */
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "LookX",
+  url: publicEnv.siteUrl,
+  applicationCategory: "SecurityApplication",
+  operatingSystem: "Any",
+  description: "Check a phone number or image for scam reports, fake vendors, impersonation and stolen photos.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "NGN" },
+  areaServed: "NG",
+};
 
 type IconName = "cart" | "heart" | "phone" | "image" | "chat" | "user";
 
@@ -74,6 +88,11 @@ export default async function Home() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        // Static, server-defined object; safe to inline.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }}
+      />
       <section id="search" className="hero-glow relative isolate overflow-hidden px-4 pb-20 pt-14 sm:pt-20">
         <HeroDecor />
         <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">

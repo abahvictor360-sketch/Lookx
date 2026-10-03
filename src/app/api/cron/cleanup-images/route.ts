@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { cleanupExpiredImages } from "@/lib/lookup/image/storage";
+import { cleanupExpiredImages, pruneOperationalData } from "@/lib/lookup/image/storage";
 
 /**
  * GET /api/cron/cleanup-images
- * Deletes uploaded images older than 24 hours. Called hourly by Vercel Cron
+ * Deletes uploaded images older than 24 hours, and prunes old rate-limit and
+ * OTP records. Called hourly by Vercel Cron
  * (see vercel.json), which sends `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: Request) {
@@ -24,5 +25,6 @@ export async function GET(request: Request) {
     deleted += n;
     if (n < 100) break;
   }
+  await pruneOperationalData();
   return NextResponse.json({ deleted });
 }
